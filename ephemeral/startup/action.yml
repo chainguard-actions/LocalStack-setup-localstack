@@ -59,17 +59,17 @@ runs:
       shell: bash
       id: create-instance
       env:
-        LOCALSTACK_API_KEY_INPUT: ${{ inputs.localstack-api-key }}
+        INPUT_LOCALSTACK_API_KEY: ${{ inputs.localstack-api-key }}
+        INPUT_AUTO_LOAD_POD: ${{ inputs.auto-load-pod }}
+        INPUT_EXTENSION_AUTO_INSTALL: ${{ inputs.extension-auto-install }}
+        INPUT_LIFETIME: ${{ inputs.lifetime }}
         ACTION_PATH: ${{ github.action_path }}
-        AUTO_LOAD_POD_INPUT: ${{ inputs.auto-load-pod }}
-        EXTENSION_AUTO_INSTALL_INPUT: ${{ inputs.extension-auto-install }}
-        LIFETIME_INPUT: ${{ inputs.lifetime }}
       run: |
-        AUTH_HEADER="ls-api-key: ${LOCALSTACK_AUTH_TOKEN:-${LOCALSTACK_API_KEY:-${LOCALSTACK_API_KEY_INPUT}}}"
+        AUTH_HEADER="ls-api-key: ${LOCALSTACK_AUTH_TOKEN:-${LOCALSTACK_API_KEY:-${INPUT_LOCALSTACK_API_KEY}}}"
         CONTENT_TYPE_HEADER="content-type: application/json"
         API_URL_BASE="https://api.localstack.cloud/v1/compute/instances"
 
-        source "${ACTION_PATH}/../retry-function.sh"
+        source "$ACTION_PATH/../retry-function.sh"
 
         fetch_instances() {
             local list_response
@@ -87,9 +87,9 @@ runs:
           exit 1
         fi
 
-        autoLoadPod="${AUTO_LOAD_POD:-${AUTO_LOAD_POD_INPUT}}"
-        extensionAutoInstall="${EXTENSION_AUTO_INSTALL:-${EXTENSION_AUTO_INSTALL_INPUT}}"
-        lifetime="${LIFETIME_INPUT}"
+        autoLoadPod="${AUTO_LOAD_POD:-${INPUT_AUTO_LOAD_POD}}"
+        extensionAutoInstall="${EXTENSION_AUTO_INSTALL:-${INPUT_EXTENSION_AUTO_INSTALL}}"
+        lifetime="${INPUT_LIFETIME}"
 
         instance_exists=$(echo "$list_response" | jq --arg NAME "$previewName" '.[] | select(.instance_name == $NAME)')
 
@@ -167,14 +167,14 @@ runs:
       shell: bash
       env:
         previewName: ${{ steps.preview-name.outputs.name }}
-        LOCALSTACK_API_KEY_INPUT: ${{ inputs.localstack-api-key }}
+        INPUT_LOCALSTACK_API_KEY: ${{ inputs.localstack-api-key }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
-        AUTH_HEADER="ls-api-key: ${LOCALSTACK_AUTH_TOKEN:-${LOCALSTACK_API_KEY:-${LOCALSTACK_API_KEY_INPUT}}}"
+        AUTH_HEADER="ls-api-key: ${LOCALSTACK_AUTH_TOKEN:-${LOCALSTACK_API_KEY:-${INPUT_LOCALSTACK_API_KEY}}}"
         CONTENT_TYPE_HEADER="content-type: application/json"
         API_URL_BASE="https://api.localstack.cloud/v1/compute/instances"
 
-        source "${ACTION_PATH}/../retry-function.sh"
+        source "$ACTION_PATH/../retry-function.sh"
         fetch_logs() {
             local log_response
             log_response=$(curl --fail-with-body -s -X GET \

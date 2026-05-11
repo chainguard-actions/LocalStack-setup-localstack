@@ -1,4 +1,4 @@
-name: Test state management inputs
+name: Test ephemeral instance with preview inputs
 on:
   workflow_dispatch:
 jobs:
@@ -10,19 +10,20 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
-      # Use skip-startup=true to avoid starting LocalStack while still
-      # exercising state-name, state-action, and state-backend input parsing.
-      # state-action='save' triggers the "Install tools" path (skip-startup or state-action==save).
+      # Use skip-startup=true to avoid actually starting LocalStack/ephemeral instance,
+      # while still exercising the input parsing for preview-cmd and include-preview.
       - id: action
         uses: .
         with:
           image-tag: latest
           install-awslocal: 'false'
           skip-startup: 'true'
+          state-backend: 'ephemeral'
           state-action: ''
-          state-backend: 'local'
-          state-name: 'my-localstack-state'
+          preview-cmd: 'echo "preview at $AWS_ENDPOINT_URL"'
+          include-preview: 'true'
+          lifetime: '30'
 
       - name: Assert step completed without error
         run: |
-          echo "PASS: action completed with state-name input"
+          echo "PASS: action completed with ephemeral/preview inputs"
