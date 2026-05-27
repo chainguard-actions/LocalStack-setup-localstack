@@ -35,10 +35,10 @@ runs:
     - name: Shutdown ephemeral instance
       shell: bash
       env:
-        LOCALSTACK_API_KEY_INPUT: ${{ inputs.localstack-api-key }}
+        INPUT_LOCALSTACK_API_KEY: ${{ inputs.localstack-api-key }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
-        AUTH_HEADER="ls-api-key: ${LOCALSTACK_AUTH_TOKEN:-${LOCALSTACK_API_KEY:-${LOCALSTACK_API_KEY_INPUT}}}"
+        AUTH_HEADER="ls-api-key: ${LOCALSTACK_AUTH_TOKEN:-${LOCALSTACK_API_KEY:-${INPUT_LOCALSTACK_API_KEY}}}"
         CONTENT_TYPE_HEADER="content-type: application/json"
         API_URL_BASE="https://api.localstack.cloud/v1/compute/instances"
 

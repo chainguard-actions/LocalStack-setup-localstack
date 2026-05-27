@@ -1,4 +1,4 @@
-name: Test state management with state-name
+name: Test state management inputs
 on:
   workflow_dispatch:
 jobs:
@@ -6,7 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - name: Run action with state-action save and state-name
+      - name: Run action with state-save inputs
         id: action
         uses: .
         with:
@@ -16,17 +16,6 @@ jobs:
           state-action: 'save'
           state-backend: 'cloud-pods'
           state-name: 'my-test-pod'
-        continue-on-error: true
-
-      - name: Assert action was invoked with state-name
-        env:
-          OUTCOME: ${{ steps.action.outcome }}
+      - name: Assert action completed
         run: |
-          echo "outcome: $OUTCOME"
-          # The action may fail without a real LocalStack CI auth token,
-          # but it should not be skipped — it should have been invoked.
-          if [ "$OUTCOME" = "skipped" ]; then
-            echo "FAIL: action step was unexpectedly skipped"
-            exit 1
-          fi
-          echo "PASS: action was invoked with state-name and state-action inputs"
+          echo "PASS: action completed with state-management inputs provided"

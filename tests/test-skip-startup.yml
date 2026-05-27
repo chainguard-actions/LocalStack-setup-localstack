@@ -1,4 +1,4 @@
-name: Test LocalStack setup with skip-startup
+name: Test skip-startup mode
 on:
   workflow_dispatch:
 jobs:
@@ -6,31 +6,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Setup LocalStack with skip-startup
+      - name: Run action with skip-startup
         id: action
         uses: .
         with:
-          image-tag: 'latest'
+          image-tag: latest
           install-awslocal: 'true'
           skip-startup: 'true'
-          skip-wait: 'false'
-          configuration: ''
-          ci-project: ''
-          github-token: ''
-          preview-cmd: 'echo preview'
-          include-preview: 'false'
-          state-name: 'test-state'
-          state-action: ''
-          state-backend: 'cloud-pods'
-          auto-load-pod: ''
-          extension-auto-install: ''
-          lifetime: '30'
-
       - name: Assert awslocal is installed
         run: |
-          if ! command -v awslocal &>/dev/null; then
-            echo "FAIL: awslocal not found in PATH"
+          echo "Checking if awslocal CLI is installed..."
+          if ! command -v awslocal &> /dev/null; then
+            echo "FAIL: awslocal CLI was not installed"
             exit 1
           fi
-          echo "PASS: awslocal is installed"
+          echo "PASS: awslocal CLI is installed"
+          awslocal --version

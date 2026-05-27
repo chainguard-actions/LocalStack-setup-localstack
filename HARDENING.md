@@ -8,58 +8,68 @@
 
 **Harden Agent Version:** `1`
 
-Action **LocalStack--setup-localstack/v0.3.2** was hardened automatically. 6 finding(s) were identified and resolved across 1 iteration(s).
+Action **LocalStack--setup-localstack/v0.3.2** was hardened automatically. 7 finding(s) were identified and resolved across 1 iteration(s).
 
 ## Findings Fixed
 
 ### script-injection (severity: high)
 
-In prepare/action.yml, the 'Save PR number' step directly interpolates `${{ github.event.number }}` inside a `run:` shell command (`echo ${{ github.event.number }} > ./pr-id.txt`). The github context value is not first assigned to an environment variable, allowing an attacker to inject shell metacharacters via a crafted event payload.
+Direct interpolation of `${{ github.event.number }}` in a `run:` shell command. The value is not first assigned to an env: variable, allowing an attacker to inject arbitrary shell commands via a crafted event payload.
 
 Locations:
 
-- `prepare/action.yml:16`
+- `prepare/action.yml:14`
 
 ### script-injection (severity: high)
 
-In startup/action.yml, the 'Start LocalStack' step directly interpolates `${{ inputs.ci-project }}` inside a `run:` shell command (`export CI_PROJECT=${{ inputs.ci-project }}`). The inputs value is not first assigned to an environment variable, allowing an attacker to inject arbitrary shell commands via the ci-project input.
+Multiple `inputs.*` expressions are directly interpolated inside `run:` shell commands in the 'Create preview environment' step: `${{ inputs.localstack-api-key }}`, `${{ inputs.auto-load-pod }}`, `${{ inputs.extension-auto-install }}`, and `${{ inputs.lifetime }}` are all embedded directly in shell strings without going through env: variables. An attacker controlling these inputs can inject arbitrary shell commands.
 
 Locations:
 
-- `startup/action.yml:80`
+- `ephemeral/startup/action.yml:55`
+- `ephemeral/startup/action.yml:75`
+- `ephemeral/startup/action.yml:76`
+- `ephemeral/startup/action.yml:77`
 
 ### script-injection (severity: high)
 
-In ephemeral/shutdown/action.yml, the 'Shutdown ephemeral instance' step directly interpolates `${{ inputs.localstack-api-key }}` and `${{ github.action_path }}` inside a `run:` shell command block. These expressions are embedded directly in shell strings without being routed through env vars, enabling shell injection.
+The 'Run preview deployment' step directly executes `${{ inputs.preview-cmd }}` as a shell command in a `run:` block. This is a critical script injection: any attacker-controlled value for `inputs.preview-cmd` is executed verbatim as a shell command with no sanitization or env: indirection.
 
 Locations:
 
-- `ephemeral/shutdown/action.yml:38`
+- `ephemeral/startup/action.yml:148`
 
 ### script-injection (severity: high)
 
-In ephemeral/startup/action.yml, multiple run: blocks directly interpolate attacker-controlled expressions: (1) the 'Create preview environment' step embeds `${{ inputs.localstack-api-key }}`, `${{ github.action_path }}`, `${{ inputs.auto-load-pod }}`, `${{ inputs.extension-auto-install }}`, and `${{ inputs.lifetime }}` directly in shell commands; (2) the 'Run preview deployment' step executes `${{ inputs.preview-cmd }}` directly as a shell command, allowing arbitrary command execution by an attacker who controls the preview-cmd input.
+The 'Print logs of ephemeral instance' step directly interpolates `${{ inputs.localstack-api-key }}` inside a `run:` shell command (`AUTH_HEADER="ls-api-key: ${LOCALSTACK_AUTH_TOKEN:-${LOCALSTACK_API_KEY:-${{ inputs.localstack-api-key }}}}"`). This bypasses env: variable indirection and allows shell injection.
 
 Locations:
 
-- `ephemeral/startup/action.yml:57`
-- `ephemeral/startup/action.yml:155`
+- `ephemeral/startup/action.yml:163`
 
 ### script-injection (severity: high)
 
-In finish/action.yml, the 'Load the Ephemeral Instance URL' step directly interpolates `${{ inputs.preview-url }}` inside a `run:` shell command block (used in a bash conditional and written to $GITHUB_ENV). The inputs value is not first assigned to an environment variable, enabling shell injection.
+The 'Shutdown ephemeral instance' step directly interpolates `${{ inputs.localstack-api-key }}` inside a `run:` shell command (`AUTH_HEADER="ls-api-key: ${LOCALSTACK_AUTH_TOKEN:-${LOCALSTACK_API_KEY:-${{ inputs.localstack-api-key }}}}"`). An attacker-controlled input value is embedded directly in the shell string.
 
 Locations:
 
-- `finish/action.yml:65`
+- `ephemeral/shutdown/action.yml:35`
+
+### script-injection (severity: high)
+
+The 'Start LocalStack' step in startup/action.yml directly interpolates `${{ inputs.ci-project }}` into a `run:` shell command (`export CI_PROJECT=${{ inputs.ci-project }}`). Although most inputs are correctly passed via env:, `inputs.ci-project` is interpolated directly, allowing shell injection.
+
+Locations:
+
+- `startup/action.yml:65`
 
 ### github-env-injection (severity: high)
 
-In finish/action.yml, the 'Load the Ephemeral Instance URL' step writes `${{ inputs.preview-url }}` directly to `$GITHUB_ENV` without sanitization (`echo "LS_PREVIEW_URL=${LS_PREVIEW_URL:-${{ inputs.preview-url }}}" >> $GITHUB_ENV`). An attacker can inject newlines into the preview-url input to set arbitrary environment variables for subsequent steps, enabling environment variable injection attacks.
+The 'Load the Ephemeral Instance URL' step in finish/action.yml writes `inputs.preview-url` directly to `$GITHUB_ENV` without sanitization: `echo "LS_PREVIEW_URL=${LS_PREVIEW_URL:-${{ inputs.preview-url }}}" >> $GITHUB_ENV`. An attacker-controlled `inputs.preview-url` value containing newlines could inject arbitrary environment variables (e.g. `key=value\nATTACKER_VAR=malicious`) into the runner environment. The required `printf '%s' ... | tr -d '\n\r'` sanitization step is absent.
 
 Locations:
 
-- `finish/action.yml:65`
+- `finish/action.yml:60`
 
 ## Iteration Notes
 
@@ -69,18 +79,19 @@ Locations:
 
 **Notes:**
 
-Fixed all 6 findings across 5 files:
+Fixed all 7 security findings across 5 files:
 
-1. prepare/action.yml (line 16): Moved `${{ github.event.number }}` to env var `PR_NUMBER` and referenced it as `"$PR_NUMBER"` in the run block.
+1. prepare/action.yml: Moved `${{ github.event.number }}` to env var `PR_NUMBER` to prevent script injection.
 
-2. startup/action.yml (line 80): Moved `${{ inputs.ci-project }}` to env var `CI_PROJECT_INPUT` and referenced it as `"${CI_PROJECT_INPUT}"` in the run block.
+2. ephemeral/startup/action.yml (Create preview environment): Moved `inputs.localstack-api-key`, `inputs.auto-load-pod`, `inputs.extension-auto-install`, `inputs.lifetime`, and `github.action_path` to env: block variables to prevent script injection.
 
-3. ephemeral/shutdown/action.yml (line 38): Moved `${{ inputs.localstack-api-key }}` to `LOCALSTACK_API_KEY_INPUT` and `${{ github.action_path }}` to `ACTION_PATH` env vars; updated shell references accordingly.
+3. ephemeral/startup/action.yml (Run preview deployment): Moved `inputs.preview-cmd` to env var `PREVIEW_CMD` and used `eval "$PREVIEW_CMD"` to execute it safely.
 
-4. ephemeral/startup/action.yml (lines 57 and 155):
-   - 'Create preview environment' step: Moved `inputs.localstack-api-key`, `github.action_path`, `inputs.auto-load-pod`, `inputs.extension-auto-install`, and `inputs.lifetime` to env vars (`LOCALSTACK_API_KEY_INPUT`, `ACTION_PATH`, `AUTO_LOAD_POD_INPUT`, `EXTENSION_AUTO_INSTALL_INPUT`, `LIFETIME_INPUT`).
-   - 'Run preview deployment' step: Moved `inputs.preview-cmd` to env var `PREVIEW_CMD` and used `eval "$PREVIEW_CMD"` instead of direct interpolation.
-   - 'Print logs of ephemeral instance' step: Also fixed `inputs.localstack-api-key` and `github.action_path` injections.
+4. ephemeral/startup/action.yml (Print logs): Moved `inputs.localstack-api-key` and `github.action_path` to env: block variables.
 
-5. finish/action.yml (line 65): Fixed both script-injection and github-env-injection by moving `inputs.preview-url` to env var `PREVIEW_URL_INPUT`, resolving the URL into a local variable, and sanitizing with `printf '%s' ... | tr -d '\n\r'` before writing to `$GITHUB_ENV`.
+5. ephemeral/shutdown/action.yml: Moved `inputs.localstack-api-key` and `github.action_path` to env: block variables (`INPUT_LOCALSTACK_API_KEY`, `ACTION_PATH`).
+
+6. startup/action.yml: Added `CI_PROJECT_INPUT: ${{ inputs.ci-project }}` to env: block and replaced direct interpolation with `"${CI_PROJECT_INPUT}"` reference.
+
+7. finish/action.yml: Moved `inputs.preview-url` to env var `INPUT_PREVIEW_URL` and added `printf '%s' ... | tr -d '\n\r'` sanitization before writing to $GITHUB_ENV to prevent newline injection.
 

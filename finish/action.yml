@@ -62,11 +62,11 @@ runs:
       shell: bash
       if: inputs.include-preview
       env:
-        PREVIEW_URL_INPUT: ${{ inputs.preview-url }}
+        INPUT_PREVIEW_URL: ${{ inputs.preview-url }}
       run: |
-        resolved_url="${LS_PREVIEW_URL:-${PREVIEW_URL_INPUT}}"
-        if [[ -n "$resolved_url" ]]; then
-          safe_url=$(printf '%s' "$resolved_url" | tr -d '\n\r')
+        effective_url="${LS_PREVIEW_URL:-${INPUT_PREVIEW_URL}}"
+        if [[ -n "${effective_url}" ]]; then
+          safe_url=$(printf '%s' "${effective_url}" | tr -d '\n\r')
           echo "LS_PREVIEW_URL=${safe_url}" >> "$GITHUB_ENV"
         elif [[ -e ls-preview-url.txt ]]; then
           safe_url=$(printf '%s' "$(<ls-preview-url.txt)" | tr -d '\n\r')
